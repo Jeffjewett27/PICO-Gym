@@ -24,5 +24,10 @@ class PicoEnvPool:
             if env.connection is None:
                 return env
         env = pico_env.PicoEnv()
-        self.add(env)
         return env
+    
+    def connection_exists(self):
+        for env in self.envs:
+            if env.connection is not None:
+                return True
+        return False
