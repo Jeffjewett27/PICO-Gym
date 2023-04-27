@@ -1,7 +1,6 @@
-from celeste.celeste_env import CelesteEnv
 import pico8gym
 import gymnasium as gym
-from pico8gym.envs.waypoint_reward import WaypointReward
+from pico8gym.envs import CelesteEnv
 
 # waypointModel = WaypointReward('player', [
 #     (40,100),

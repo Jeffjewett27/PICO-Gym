@@ -1,6 +1,9 @@
 import gymnasium as gym
+from pico8gym.components import PicoControls, WaypointReward
+from pico8gym.components.exploration_reward import ExplorationReward
 from pico8gym.envs import PicoEnv
-from pico8gym.components.waypoint_reward import WaypointReward
+
+import numpy as np
 
 class CelesteEnv(PicoEnv):
     def __init__(self) -> None:
@@ -61,17 +64,21 @@ class CelesteEnv(PicoEnv):
                 (15,14),
             ],
         ], 8, 10)
+        exploreReward = ExplorationReward()
         controllerInput = PicoControls(PicoControls.ALL_CONFIG)
         super().__init__(
+            cart='celeste',
             controls=controllerInput,
-            rewardComponent=waypointReward,
-            render_mode=None, 
+            rewardComponent=exploreReward,
+            render_mode="human",
+            max_episode_steps=300
         )
 
-    def reset(self, seed = None, options = {}):
-        self.room = np.random.randint(8)
+    def reset_async(self, seed = None, options = {}):
+        self.room = int(np.random.randint(8))
+        # self.room = 0
         options = {
             'room': self.room,
             **options,
         }
-        super().reset(seed, options)
+        return super().reset_async(seed, options)

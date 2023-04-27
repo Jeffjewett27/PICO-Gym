@@ -31,7 +31,7 @@ class SocketServer:
             SocketServer.instance.close()
 
     @staticmethod
-    def close_all(signal, frame):
+    def close_all(_, __):
         print("CLOSE ALL")
         if SocketServer.instance is not None:
             SocketServer.instance.close()

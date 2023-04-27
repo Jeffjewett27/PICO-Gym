@@ -5,23 +5,33 @@ import cv2
 import numpy as np
 from pico8gym.envs.pico_env_pool import PicoEnvPool
 from pico8gym.components.reward_component import RewardComponent
-from pico8gym.util.img_util import fancy_print_image, save_image
+from pico8gym.server.process_management import ProcessManagement
+from pico8gym.util.img_util import draw_controls, fancy_print_image, save_image
 from pico8gym.server.eventlet import SocketServer
 from pico8gym.components.pico_output import PicoOutput
 from pico8gym.components.pico_controls import PicoControls
 import gymnasium as gym
 import gymnasium.spaces as spaces
-# import subprocess
+from gymnasium.error import DependencyNotInstalled
+import subprocess
+import atexit
 # import asyncio
 
 class PicoEnv(gym.Env):
-    render_modes = ["terminal", "human"]
-    def __init__(self, controls: PicoControls=PicoControls(PicoControls.ALL_CONFIG), rewardComponent: RewardComponent=RewardComponent(), 
-        outputClass=PicoOutput, render_mode=None) -> None:
+    totalSteps = 0
+    metadata = {
+        "render_modes": ["human", "rgb_array"],
+        "render_fps": 30,
+    }
+    def __init__(self, cart, controls: PicoControls=PicoControls(PicoControls.ALL_CONFIG), rewardComponent: RewardComponent=RewardComponent(), 
+        outputClass=PicoOutput, max_episode_steps = None, render_mode=None) -> None:
         
+        self.cart = cart
+
         # Setup PICO-8 environment
         SocketServer.ensure_instance()
         PicoEnvPool.get_instance().add(self)
+        ProcessManagement.get_instance().spawn_process(cart)
 
         # Communication with PICO-8
         self.connection = None
@@ -31,6 +41,7 @@ class PicoEnv(gym.Env):
 
         self.stepNum = 0
         self.render_mode = render_mode
+        self.max_episode_steps = max_episode_steps
         self.debug = False
 
         # Spaces and components
@@ -42,6 +53,11 @@ class PicoEnv(gym.Env):
 
         # Rendering
         self.lastScreen = None
+        self.lastControls = 0
+        self.screen_width = 600
+        self.screen_height = 600
+        self.screen = None
+        self.clock = None
 
     def connect(self, socket):
         print(f'Connected env to {socket.environ["REMOTE_PORT"]}')
@@ -71,21 +87,16 @@ class PicoEnv(gym.Env):
             print(f'PicoEnv recieved {pOut.event}. Continuing')
         return pOut
 
-
-    def step(self, action: spaces.MultiBinary):
-        if not self.isInitialized:
-            # raise Exception("Cannot step orphan environment")
-            print("PicoEnv waiting to be initialized in step")
-            self.initializedEvent.wait()
-            self.initializedEvent.clear()
-        controllerInput = self.controls.action_to_controls(action)
+    def step_async(self, action: spaces.MultiBinary):
+        self.lastAction = action
+        self.lastControls = self.controls.action_to_controls(action)
         msgObj = {
             'step': self.stepNum,
-            'input': controllerInput
+            'input': self.lastControls
         }
         self.connection.send(json.dumps(msgObj))
-        self.isBlocking = True
-        
+
+    def step_wait(self):
         pout = self.wait_message_event('step')
         # cv2.imwrite("testing.jpg", pout.observation['screen'])
         # fancy_print_image(pout.observation['screen'])
@@ -96,18 +107,29 @@ class PicoEnv(gym.Env):
         # fancy_print_image(img)
         # save_image(f"screen.jpg", pout.screen)
 
-        if pout.terminated or pout.truncated:
-            print(f'Done: reward={reward}, info={pout.info}, term={pout.terminated}, trunc={pout.truncated}, step={self.stepNum}')
+        # if pout.terminated or pout.truncated:
+        #     print(f'Done: reward={reward}, info={pout.info}, term={pout.terminated}, trunc={pout.truncated}, step={self.stepNum}')
         self.stepNum += 1
-        return pout.get_observation(), reward, pout.terminated, pout.truncated, pout.info
-    
-    def reset(self, seed = None, options = {}):
+        PicoEnv.totalSteps += 1
+        truncated = bool(self.max_episode_steps) and self.stepNum >= self.max_episode_steps
+        return pout.get_observation(), reward, pout.terminated, pout.truncated or truncated, pout.info
+
+    def step(self, action: spaces.MultiBinary):
+        if not self.isInitialized:
+            # raise Exception("Cannot step orphan environment")
+            print("PicoEnv waiting to be initialized in step")
+            self.initializedEvent.wait()
+            self.initializedEvent.clear()
+        self.step_async(action)
+        
+        return self.step_wait()
+
+    def reset_async(self, seed = None, options = {}):
         if not self.isInitialized:
             # raise Exception("Cannot step orphan environment")
             print("PicoEnv waiting to be initialized in reset")
             self.initializedEvent.wait()
             self.initializedEvent.clear()
-        
         super().reset(seed=seed)
         self.rewardComponent.reset_reward(**options)
         command = {
@@ -119,8 +141,9 @@ class PicoEnv(gym.Env):
         }
         msg = json.dumps(msgObj)
         self.connection.send(msg)
-        pout = self.wait_message_event('reset')
 
+    def reset_wait(self):
+        pout = self.wait_message_event('reset')
         # img = self.rewardModel.render(pout.observation['screen'])
         # fancy_print_image(img)
         # save_image("testing.jpg", img)
@@ -128,9 +151,58 @@ class PicoEnv(gym.Env):
         self.stepNum = 0
         return pout.get_observation(), pout.info
     
+    def reset(self, seed = None, options = {}):
+        self.reset_async(seed, options)
+
+        return self.reset_wait()
+    
     def render(self):
-        if self.render_mode == "terminal":
-            fancy_print_image(self.lastScreen)
+        if self.render_mode is None:
+            assert self.spec is not None
+            gym.logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization, "
+                f'e.g. gym.make("{self.spec.id}", render_mode="rgb_array")'
+            )
+            return
+
+        try:
+            import pygame
+        except ImportError as e:
+            raise DependencyNotInstalled(
+                "pygame is not installed, run `pip install gymnasium[classic-control]`"
+            ) from e
+
+        if self.screen is None:
+            pygame.init()
+            if self.render_mode == "human":
+                pygame.display.init()
+                self.screen = pygame.display.set_mode(
+                    (self.screen_width, self.screen_height)
+                )
+            else:  # mode == "rgb_array"
+                self.screen = pygame.Surface((self.screen_width, self.screen_height))
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+
+        if self.lastScreen is not None:
+            # npimg = self.lastScreen
+            npimg = self.rewardComponent.render(self.lastScreen)
+            draw_controls(npimg, self.lastControls)
+            # npimg = cv2.resize(npimg, (48,48))
+            npimg = cv2.resize(cv2.cvtColor(np.transpose(npimg, axes=(1, 0, 2)), cv2.COLOR_RGB2BGR), (self.screen_width, self.screen_width), interpolation=cv2.INTER_AREA)
+            surf = pygame.surfarray.make_surface(npimg)
+            self.screen.blit(surf, (0, 0))
+
+        if self.render_mode == "human":
+            pygame.event.pump()
+            self.clock.tick(self.metadata["render_fps"])
+            pygame.display.flip()
+
+        elif self.render_mode == "rgb_array":
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)
+            )
     
     def close(self):
         self.connection = None

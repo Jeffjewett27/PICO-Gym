@@ -10,6 +10,7 @@ class CartPoleEnv(PicoEnv):
     def __init__(self, render_mode=None) -> None:
         controllerInput = PicoControls([PicoControls.NONE, PicoControls.RIGHT], isDiscrete=True)
         super().__init__(
+            cart='cartpole',
             controls=controllerInput,
             outputClass=CartPoleOutput,
             render_mode=render_mode

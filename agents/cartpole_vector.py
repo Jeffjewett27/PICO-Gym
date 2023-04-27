@@ -5,6 +5,8 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from stable_baselines3.common.env_util import make_vec_env
 import time
+from pico8gym.envs.pico_vec_env import PicoVecEnv
+from pico8gym.envs.sb3_vec_wrapper import SB3VecEnvWrapper
 
 from pico8gym.envs.pico_env import PicoEnv
 
@@ -13,11 +15,11 @@ def makeEnv():
     env = gym.make('pico8gym/cartpole-v0', render_mode='human')
     # return Monitor(env, filename="logs/cartpole.log")
     return env
-env = makeEnv()
+env = SB3VecEnvWrapper(PicoVecEnv([makeEnv] * 4))
 # print(env.observation_space)
 # print(env.action_space)
 
-# observation, info = env.reset()
+observation = env.reset()
 
 # for _ in range(10000):
 #     action = env.action_space.sample()  # agent policy that uses the observation and info
@@ -31,11 +33,11 @@ env = makeEnv()
 
 # env = VecMonitor(DummyVecEnv([makeEnv, makeEnv, makeEnv, makeEnv]))
 # env = make_vec_env('pico8gym/cartpole-v0', n_envs=8, env_kwargs={ 'render_mode': 'human' })
-# model = A2C("MlpPolicy", env, verbose=1)
-# model.learn(total_timesteps=10_000, progress_bar=True)
-# model.save("models/cart2")
+model = A2C("MlpPolicy", env, verbose=1)
+# model.learn(total_timesteps=40_000, progress_bar=True)
+# model.save("models/cart3")
 # print(f'NUM PICOENV STEPS: {PicoEnv.totalSteps}')
-model = A2C.load("models/cart1", env=env)
+model = A2C.load("models/cart3", env=env)
 vec_env = model.get_env()
 obs = vec_env.reset()
 for i in range(10000):

@@ -26,4 +26,4 @@ class PicoControls:
         if self.isDiscrete:
             return self.buttonList[action]
         buttonVals = [v*a for v, a in zip(self.buttonList, action)]
-        return functools.reduce(lambda a, b: a | b, buttonVals)
+        return int(functools.reduce(lambda a, b: a | b, buttonVals))
