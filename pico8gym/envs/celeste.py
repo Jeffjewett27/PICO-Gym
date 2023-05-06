@@ -9,12 +9,16 @@ class CelesteEnv(PicoEnv):
     def __init__(self) -> None:
         waypointReward = WaypointReward('player', [
             [
-                (65,80),
-                (105,65),
-                (35,40),
+                (31,85),
+                (65,75, 1),
+                (80,68),
+                (105,60, 1),
+                (91, 46),
+                (72,43),
+                (35,33, 1),
                 (60,25),
-                (95,25),
-                (112,10),
+                (90,18),
+                (112,10, 1),
             ],
             [
                 (30,48),
@@ -69,14 +73,19 @@ class CelesteEnv(PicoEnv):
         super().__init__(
             cart='celeste',
             controls=controllerInput,
-            rewardComponent=exploreReward,
+            rewardComponent=waypointReward,
+            infoLoggingDefaults={
+                'tag': ''
+            },
+            resolution=(48,48),
+            frameskip=3,
             render_mode="human",
             max_episode_steps=300
         )
 
     def reset_async(self, seed = None, options = {}):
-        self.room = int(np.random.randint(8))
-        # self.room = 0
+        # self.room = int(np.random.randint(8))
+        self.room = 0
         options = {
             'room': self.room,
             **options,

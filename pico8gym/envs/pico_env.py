@@ -24,7 +24,7 @@ class PicoEnv(gym.Env):
         "render_fps": 30,
     }
     def __init__(self, cart, controls: PicoControls=PicoControls(PicoControls.ALL_CONFIG), rewardComponent: RewardComponent=RewardComponent(), 
-        outputClass=PicoOutput, max_episode_steps = None, render_mode=None) -> None:
+        outputClass=PicoOutput, infoLoggingDefaults={}, max_episode_steps = None, resolution = (128, 128), frameskip = 0, render_mode=None) -> None:
         
         self.cart = cart
 
@@ -42,14 +42,18 @@ class PicoEnv(gym.Env):
         self.stepNum = 0
         self.render_mode = render_mode
         self.max_episode_steps = max_episode_steps
+        self.frameskip = frameskip
         self.debug = False
 
         # Spaces and components
+        self.resolution = resolution
         self.outputClass = outputClass
+        self.infoLoggingDefaults = infoLoggingDefaults
         self.rewardComponent = rewardComponent
         self.controls = controls
         self.action_space = controls.action_space
-        self.observation_space = spaces.Box(low=0, high=255, shape=(128,128,3), dtype=np.uint8)
+        self.observation_space = spaces.Box(low=0, high=255, shape=(*resolution,3), dtype=np.uint8)
+        print('PICO_ENV OBS SHAPE', self.observation_space.shape)    
 
         # Rendering
         self.lastScreen = None
@@ -70,7 +74,7 @@ class PicoEnv(gym.Env):
 
     def receive(self, output: dict):
         if self.isInitialized:
-            self.picoOutput = self.outputClass(output)
+            self.picoOutput = self.outputClass(output, self.infoLoggingDefaults)
             self.picoMessageEvent.set()
 
     def wait_message_event(self, event):
@@ -92,7 +96,8 @@ class PicoEnv(gym.Env):
         self.lastControls = self.controls.action_to_controls(action)
         msgObj = {
             'step': self.stepNum,
-            'input': self.lastControls
+            'input': self.lastControls,
+            'skipframes': self.frameskip,
         }
         self.connection.send(json.dumps(msgObj))
 
@@ -105,14 +110,13 @@ class PicoEnv(gym.Env):
         self.lastScreen = pout.screen
         # img = self.rewardComponent.render(pout.screen)
         # fancy_print_image(img)
-        # save_image(f"screen.jpg", pout.screen)
-
+        # save_image(f"screen.jpg", pout.get_observation(self.observation_space))
         # if pout.terminated or pout.truncated:
         #     print(f'Done: reward={reward}, info={pout.info}, term={pout.terminated}, trunc={pout.truncated}, step={self.stepNum}')
         self.stepNum += 1
         PicoEnv.totalSteps += 1
         truncated = bool(self.max_episode_steps) and self.stepNum >= self.max_episode_steps
-        return pout.get_observation(), reward, pout.terminated, pout.truncated or truncated, pout.info
+        return pout.get_observation(self.observation_space), reward, pout.terminated, pout.truncated or truncated, pout.info
 
     def step(self, action: spaces.MultiBinary):
         if not self.isInitialized:
@@ -149,7 +153,7 @@ class PicoEnv(gym.Env):
         # save_image("testing.jpg", img)
         # print(f'Reset on step {self.stepNum}')
         self.stepNum = 0
-        return pout.get_observation(), pout.info
+        return pout.get_observation(self.observation_space), pout.info
     
     def reset(self, seed = None, options = {}):
         self.reset_async(seed, options)
@@ -186,17 +190,17 @@ class PicoEnv(gym.Env):
             self.clock = pygame.time.Clock()
 
         if self.lastScreen is not None:
-            # npimg = self.lastScreen
-            npimg = self.rewardComponent.render(self.lastScreen)
+            npimg = self.lastScreen
+            # npimg = self.rewardComponent.render(self.lastScreen)
             draw_controls(npimg, self.lastControls)
-            # npimg = cv2.resize(npimg, (48,48))
+            # npimg = cv2.resize(npimg, (48,48), interpolation=cv2.INTER_NEAREST)
             npimg = cv2.resize(cv2.cvtColor(np.transpose(npimg, axes=(1, 0, 2)), cv2.COLOR_RGB2BGR), (self.screen_width, self.screen_width), interpolation=cv2.INTER_AREA)
             surf = pygame.surfarray.make_surface(npimg)
             self.screen.blit(surf, (0, 0))
 
         if self.render_mode == "human":
             pygame.event.pump()
-            self.clock.tick(self.metadata["render_fps"])
+            self.clock.tick(self.metadata["render_fps"] / (1+self.frameskip))
             pygame.display.flip()
 
         elif self.render_mode == "rgb_array":

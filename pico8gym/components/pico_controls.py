@@ -23,6 +23,7 @@ class PicoControls:
             if isDiscrete else spaces.MultiBinary(len(buttonList))
 
     def action_to_controls(self, action):
+        action = [int(v>0.5) for v in action]
         if self.isDiscrete:
             return self.buttonList[action]
         buttonVals = [v*a for v, a in zip(self.buttonList, action)]

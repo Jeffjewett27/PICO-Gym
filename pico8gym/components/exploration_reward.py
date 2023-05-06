@@ -19,9 +19,11 @@ class ExplorationReward(RewardComponent):
 
     def step_reward(self, output: PicoOutput):
         reward = 0
-        # tag = output.info.get('tag', '')
-        # if tag == 'goal':
-        #     reward = self.verticalFactor * 40 - self.dist *
+        tag = output.info.get('tag', '')
+        if tag == 'goal':
+            reward += self.verticalFactor * max(80 - self.dist, 10)
+        elif tag == 'died':
+            reward -= self.verticalFactor * 3
         posStr = output.info.get('player', None)
         if posStr is None:
             return 0
@@ -36,6 +38,10 @@ class ExplorationReward(RewardComponent):
             self.startIdx = curIdx
             return reward
         if self.path[curIdx] != curIdx or curIdx == self.startIdx:
+            self.loopCounts[curIdx] += 1
+            if self.loopCounts[curIdx] > 2:
+                print('Looped too many times')
+                output.terminated = True
             # visited before. Erase path and penalize
             idx = self.prevIdx
             while idx != curIdx:
@@ -64,8 +70,8 @@ class ExplorationReward(RewardComponent):
         return reward                
 
     def reset_reward(self, **kwargs):
-        if self.cumReward != 0:
-            print(f'CUMULATIVE: {self.cumReward}, DIST: {self.dist}, FRAC: {self.cumReward / self.dist}, SCORE: {self.cumReward * (1+self.cumReward/self.dist)}')
+        # if self.cumReward != 0:
+        #     print(f'CUMULATIVE: {self.cumReward}, DIST: {self.dist}, FRAC: {self.cumReward / self.dist}, SCORE: {self.cumReward * (1+self.cumReward/self.dist)}')
         self.path = [i for i in range(self.gridSize**2)]
         self.gridRewards = [self.verticalReward(i) for i in range(self.gridSize**2)]
         self.collRewards = [0 for _ in range(self.gridSize**2)]

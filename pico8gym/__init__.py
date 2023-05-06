@@ -9,7 +9,8 @@ register(
 register(
      id="pico8gym/celeste-v0",
      entry_point="pico8gym.envs:CelesteEnv",
-     max_episode_steps=300,
+     max_episode_steps=600,
+     order_enforce=False
 )
 
 register(

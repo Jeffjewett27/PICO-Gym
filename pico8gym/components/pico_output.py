@@ -1,4 +1,6 @@
 from pico8gym.util.img_util import b64_decode_img
+from gymnasium import spaces
+import cv2
 
 class PicoOutput:
     @staticmethod
@@ -9,7 +11,7 @@ class PicoOutput:
             return val != 0
         return False
     
-    def __init__(self, data: dict={}):
+    def __init__(self, data: dict={}, infoDefaults: dict={}):
         self.event = data.pop('event', 'default')
         self.step = data.pop('step', -1)
         self.screenStr = data.pop('screen', None)
@@ -19,7 +21,10 @@ class PicoOutput:
             self.reward = 0
         self.terminated = PicoOutput.parse_bool(data.pop('terminated', False))
         self.truncated = PicoOutput.parse_bool(data.pop('truncated', False))
-        self.info = data #remaining keys
+        self.info = {
+            **infoDefaults,
+            **data, #remaining keys
+        }
 
         self.screen = None
         if self.screenStr is not None and len(self.screenStr) > 0:
@@ -27,6 +32,9 @@ class PicoOutput:
             # print('Screen transformation')
             # print(self.observation['screen'])
 
-    def get_observation(self):
+    def get_observation(self, observation_space: spaces.Space = None):
+        # print('GET_OBS', observation_space, observation_space.shape)
+        if observation_space is not None and isinstance(observation_space, spaces.Box):
+            return cv2.resize(self.screen, observation_space.shape[:2], interpolation=cv2.INTER_NEAREST)
         return self.screen
     

@@ -1,5 +1,6 @@
 import subprocess
 import atexit
+from .config import host, port
 
 class ProcessManagement:
     instance = None
@@ -21,7 +22,7 @@ class ProcessManagement:
 
     def spawn_process(self, *params):
         assert len(params) >= 1
-        p = subprocess.Popen(["node", "src/picorunner.js", "-c", *params], cwd='PICO-Node', 
+        p = subprocess.Popen(["node", "src/picorunner.js", "-c", *params, "-p", str(port)], cwd='PICO-Node', 
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.processes.append(p)
 
