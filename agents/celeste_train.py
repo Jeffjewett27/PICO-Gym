@@ -4,8 +4,8 @@ from pico8gym.envs import CelesteEnv, PicoVecEnv, SB3VecEnvWrapper
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
 from stable_baselines3.common.vec_env import VecFrameStack, VecMonitor, VecTransposeImage
 
-test='4b'
-numenvs = 12
+test='6'
+numenvs = 30
 
 def makeEnv():
     return gym.make('pico8gym/celeste-v0')

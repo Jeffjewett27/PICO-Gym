@@ -9,9 +9,9 @@ def makeEnv():
 env = SB3VecEnvWrapper(PicoVecEnv([makeEnv] * 1))
 env = VecFrameStack(env, n_stack=4)
 
-model = PPO.load("logs/best_model", env=env)
+# model = PPO.load("logs/best_model", env=env)
 # model = PPO.load("models/best_celeste_t3", env=env)
-# model = PPO.load("logs/celeste_t4b_2999880_steps", env=env)
+model = PPO.load("logs/celeste_t5_399960_steps", env=env)
 vec_env = model.get_env()
 obs = vec_env.reset()
 for i in range(10000):

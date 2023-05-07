@@ -12,8 +12,6 @@ class PicoVecEnv(gym.vector.VectorEnv):
         for i in range(self.num_envs):
             self.envs.append(env_fns[i%len(env_fns)]())
 
-            print('PICO_VEC_ENV OBS SHAPE', self.envs[0].observation_space.shape) 
-
         super().__init__(self.num_envs, self.envs[0].observation_space, self.envs[0].action_space)
 
     def step_async(self, actions):

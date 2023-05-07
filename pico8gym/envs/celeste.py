@@ -2,6 +2,7 @@ import gymnasium as gym
 from pico8gym.components import PicoControls, WaypointReward
 from pico8gym.components.exploration_reward import ExplorationReward
 from pico8gym.envs import PicoEnv
+from pico8gym.games.celeste.room_spawns import sample_room
 
 import numpy as np
 
@@ -86,8 +87,11 @@ class CelesteEnv(PicoEnv):
     def reset_async(self, seed = None, options = {}):
         # self.room = int(np.random.randint(8))
         self.room = 0
+        x,y = sample_room(self.room)
         options = {
             'room': self.room,
+            'x': x,
+            'y': y,
             **options,
         }
         return super().reset_async(seed, options)

@@ -53,7 +53,6 @@ class PicoEnv(gym.Env):
         self.controls = controls
         self.action_space = controls.action_space
         self.observation_space = spaces.Box(low=0, high=255, shape=(*resolution,3), dtype=np.uint8)
-        print('PICO_ENV OBS SHAPE', self.observation_space.shape)    
 
         # Rendering
         self.lastScreen = None

@@ -23,7 +23,6 @@ class SB3VecEnvWrapper(VecEnv):
         if len(venv.envs) == 0:
             raise ValueError("The provided VectorEnv has 0 envs")
         env = self.venv.envs[0]
-        print('SB3_VEC_ENV', env.observation_space.shape)
         VecEnv.__init__(self, len(venv.envs), env.observation_space, env.action_space, env.render_mode)
         
         self.metadata = env.metadata

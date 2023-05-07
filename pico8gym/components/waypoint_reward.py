@@ -13,7 +13,7 @@ class WaypointReward(RewardComponent):
         self.idx = 0
         self.waypointReward = waypointReward
         self.allowSkips = False
-        self.waypointEnergy = 150
+        self.waypointEnergy = 45
         self.energy = self.waypointEnergy
         self.dashReward = 0.4
         self.drawMarkers = True
@@ -23,7 +23,7 @@ class WaypointReward(RewardComponent):
         output.screen = self.render(output.screen)
         tag = output.info.get('tag', '')
         if tag == 'goal':
-            reward += 20 * self.waypointReward
+            reward += 4 * self.waypointReward
         elif tag == 'died':
             reward -= 0.6 * self.waypointReward
         self.energy -= 1
